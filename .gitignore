@@ -10,6 +10,7 @@ diagnostics/
 *.log
 messages-v*.json
 network-priority-backup.json
+network-traffic-v*.json
 sms-test-*.txt
 sms-expected-*.txt
 

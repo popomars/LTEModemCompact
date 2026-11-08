@@ -3,6 +3,7 @@ import NetworkCore
 
 struct NetworkPane: View {
     @ObservedObject var controller: Controller
+    @State private var confirmResetTraffic = false
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -29,6 +30,22 @@ struct NetworkPane: View {
                         Text("取得本地地址只证明 USB 链路已建立。当前页面不将它标记为 4G 互联网验证成功。").font(.caption).foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
                 }
+                GroupBox("网卡流量") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 30) {
+                            rate("下载", controller.traffic.receiveRate, "arrow.down")
+                            rate("上传", controller.traffic.sendRate, "arrow.up")
+                            Spacer()
+                            Button("清零统计…") { confirmResetTraffic = true }.disabled(controller.demo)
+                        }
+                        row("本次运行", "下载 " + bytes(controller.traffic.sessionReceived) + "  ·  上传 " + bytes(controller.traffic.sessionSent))
+                        row("累计统计", "下载 " + bytes(controller.traffic.totalReceived) + "  ·  上传 " + bytes(controller.traffic.totalSent))
+                        Text("累计起点：\(controller.traffic.since.formatted())").font(.caption).foregroundStyle(.secondary)
+                        Text(controller.traffic.interfaces.isEmpty ? "等待模块网卡计数，速度暂为 0。" : "统计接口：" + controller.traffic.interfaces.joined(separator: "、")).font(.caption).foregroundStyle(.secondary)
+                        Text("每约 5 秒刷新，统计应用运行且 Mac 唤醒期间模块网卡的收发字节；退出或休眠期间不补计。累计跨重启保留，多模块合计、不按 SIM 分账，含协议开销及本地链路流量，与运营商计费可能不同。").font(.caption).foregroundStyle(.secondary)
+                        if !controller.traffic.notice.isEmpty { Text(controller.traffic.notice).font(.caption).foregroundStyle(.orange) }
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                }
                 GroupBox("上网优先级") {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(controller.priority.summary).font(.headline)
@@ -51,6 +68,18 @@ struct NetworkPane: View {
                 Text("状态更新：\(controller.network.checkedAt.formatted(date: .omitted, time: .standard))").font(.caption2).foregroundStyle(.secondary)
             }.padding(22).frame(maxWidth: 920, alignment: .leading)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        .confirmationDialog("清零本次与累计流量？", isPresented: $confirmResetTraffic, titleVisibility: .visible) {
+            Button("清零统计", role: .destructive) { controller.resetTraffic() }
+        } message: { Text("只清除本机流量统计，不改变网络连接或 SIM 套餐。此操作不能撤销。") }
+    }
+    private func bytes(_ value: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .decimal)
+    }
+    private func rate(_ title: String, _ value: Double, _ symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(title, systemImage: symbol).font(.caption).foregroundStyle(.secondary)
+            Text(bytes(UInt64(max(0, min(value, Double(Int64.max))))) + "/s").font(.title3.monospacedDigit())
+        }.frame(minWidth: 130, alignment: .leading)
     }
     private func row(_ title: String, _ value: String) -> some View {
         HStack(alignment: .top) {

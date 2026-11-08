@@ -14,6 +14,17 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
     @Published var priority = NetworkPriorityState.unavailable
     @Published var networkBusy = false
     @Published var networkNotice = ""
+    @Published var traffic = TrafficSnapshot()
+    @Published var notificationStatus = "正在读取通知权限…"
+    @Published var notificationsAuthorized = false
+    @Published var notificationNeedsPermission = true
+    @Published var notificationBusy = false
+    @Published var notificationNotice = ""
+    @Published var notificationEnabled = UserDefaults.standard.object(forKey: "smsNotificationsEnabled") as? Bool ?? true
+    @Published var notificationSound = UserDefaults.standard.object(forKey: "smsNotificationSound") as? Bool ?? true
+    @Published var notificationMessageID: String?
+    private let trafficTracker: TrafficTracker
+    private var networkRefreshing = false
     private let directory: URL
     private var networkTask: Task<Void, Never>?
     @Published var error = ""
@@ -30,6 +41,7 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
         self.directory = directory
         self.network = demo ? .preview : NetworkMonitor.read()
         engine = try ModemEngine(directory: directory)
+        trafficTracker = TrafficTracker(directory: directory)
         super.init()
     }
     func start() {
@@ -37,6 +49,7 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
             snapshot = ModemSnapshot(status: "演示模式 · 未访问设备", sim: "demo", carrier: "中国联通", registered: true, network: "en15 · 192.0.2.2 · 示例本地链路", messages: [], newMessages: [])
             network = .preview
             priority = NetworkPriorityState(summary: "Wi-Fi 优先 · 演示", canPreferWiFi: false, canPreferCellular: false, canRestore: false, detail: "演示模式不会修改系统网络")
+            notificationStatus = "演示模式 · 不发送通知"
             onStatus?(snapshot.status); return
         }
         let center = UNUserNotificationCenter.current()
@@ -62,13 +75,28 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
         }
         // Permissions and login startup remain explicit user choices.
         refreshLogin()
+        Task { await refreshNotifications() }
     }
     func refreshNetwork() async {
-        guard !demo else { return }
+        guard !demo, !networkRefreshing, !sleeping else { return }
+        networkRefreshing = true
+        defer { networkRefreshing = false }
         let directory = self.directory
-        let values = await Task.detached(priority: .utility) { (NetworkMonitor.read(), NetworkPriority.read(directory: directory)) }.value
-        guard !Task.isCancelled else { return }
+        let values = await Task.detached(priority: .utility) {
+            let network = NetworkMonitor.read()
+            let counters = TrafficMonitor.read(names: network.links.filter(\.active).map(\.name))
+            return (network, NetworkPriority.read(directory: directory), counters, ProcessInfo.processInfo.systemUptime)
+        }.value
+        guard !Task.isCancelled, !sleeping else { return }
         network = values.0; priority = values.1
+        traffic = await trafficTracker.sample(values.2, uptime: values.3)
+    }
+    func resetTraffic() {
+        guard !demo else { return }
+        Task {
+            do { traffic = try await trafficTracker.reset() }
+            catch { self.error = "清零失败：\(error.localizedDescription)" }
+        }
     }
     func setNetworkPreference(_ preference: NetworkPreference?) {
         guard !demo, !networkBusy else { return }
@@ -107,15 +135,6 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
             catch { self.error = "取消自动启动失败：\(error.localizedDescription)" }
         }
     }
-    func retryNotifications() {
-        guard !demo else { return }
-        Task {
-            do {
-                let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
-                if !granted { error = "通知未获允许；请在系统设置 → 通知 → LTEModemCompact 中开启" }
-            } catch { self.error = error.localizedDescription }
-        }
-    }
     func send(to number: String, text: String, sim: String) async -> Bool {
         guard !demo else { error = "演示模式不会发送短信"; return false }
         guard !sending else { return false }
@@ -125,6 +144,7 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
         catch { self.error = error.localizedDescription; snapshot = await engine.current(); return false }
     }
     func notify(_ message: Message) async {
+        guard notificationEnabled else { return }
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
         let content = UNMutableNotificationContent()
@@ -133,17 +153,19 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
         content.body = "点击查看；展开可快捷回复"
         content.categoryIdentifier = "incomingSMS"
         content.userInfo = ["messageID": message.id]
-        content.sound = .default
+        content.sound = notificationSound ? .default : nil
         do { try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: message.id, content: content, trigger: nil)) }
         catch { self.error = "短信已保存，通知发送失败：\(error.localizedDescription)" }
     }
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) { completionHandler([.banner, .sound]) }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) { completionHandler([.banner, .list, .sound]) }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         let id = response.notification.request.content.userInfo["messageID"] as? String
         let text = (response as? UNTextInputNotificationResponse)?.userText
         let action = response.actionIdentifier
         Task { @MainActor in
             defer { completionHandler() }
+            if let id { self.notificationMessageID = id }
+            self.section = .sms
             if action == "reply", let id, let text {
                 do {
                     let (peer, sim) = try await self.engine.replyTarget(id: id)
@@ -157,5 +179,5 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
         }
     }
     func stop() async { networkTask?.cancel(); networkTask = nil; task?.cancel(); task = nil; await engine.disconnect() }
-    func releaseForSleep() { sleeping = true; Task { await engine.disconnect() } }
+    func releaseForSleep() { sleeping = true; Task { await trafficTracker.suspend(); await engine.disconnect() } }
 }

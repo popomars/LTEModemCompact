@@ -5,7 +5,8 @@
 | 目录 | 职责 |
 | --- | --- |
 | `Sources/NativeUSB` | 自研 C / IOKit 接口枚举、非抢占式打开、超时读写和释放 |
-| `Sources/NetworkCore` | 系统网卡状态与显式网络优先级事务，不打开 AT |
+| `Sources/SystemNetworkStats` | 只读获取 Darwin 网卡 64 位累计计数 |
+| `Sources/NetworkCore` | 系统网卡状态、流量累计与显式网络优先级事务，不打开 AT |
 | `Sources/ModemCore` | 串行 AT 会话、短信编解码、存储和 SIM 生命周期 |
 | `Sources/LTEModemCompact` | AppKit 菜单栏、SwiftUI 短信窗口、通知和用户自选登录项 |
 | `Sources/ModemDiagnostics` | 与 GUI 共用引擎、存储和进程锁的有限诊断入口 |
@@ -54,6 +55,15 @@
 
 ## 安装包外观
 
-`scripts/render-installer-assets.swift` 用 AppKit 绘制原创图标和两倍分辨率的安装背景；构建时生成 ICNS，签名前装入应用。图片不依赖外部下载，生成文件仅留在 `dist`。
+`scripts/render-installer-assets.swift` 用 AppKit 绘制原创图标和两倍分辨率的安装背景；构建时生成 ICNS，签名前装入应用；签名前移除可执行文件中的调试符号与对象映射，避免携带本机构建路径。图片不依赖外部下载，生成文件仅留在 `dist`。
 
 `scripts/configure-dmg-layout.py` 在临时可写镜像中写入 Finder 窗口大小、背景别名及图标位置，再转成只读压缩 DMG。仅构建阶段使用 [ds-store](https://ds-store.readthedocs.io/en/latest/) 1.3.3 和 mac-alias 2.2.2；不复制其源码或运行环境到公开仓库、应用或镜像。构建不控制 Finder，也不改用户的 Finder 偏好。
+
+## 流量与通知
+
+流量通过 `NET_RT_IFLIST2` / `if_msghdr2` 读取 64 位字节计数，仅给已识别且活动的模块接口采样。接口索引与最后状态变更时间构成计数代次；初次采样、代次改变、计数回退、断开及超过 15 秒的间隔仅建立基线。速率使用进程单调时钟，累计值单独原子保存，不恢复旧内核基线。损坏的累计文件保留并提示，只有用户确认清零后才覆盖。此统计不尝试推导运营商计费。
+
+通知仍由 `UNUserNotificationCenter` 本地提交，无推送服务。初始化设置类别与委托但不主动申请权限；显式开启时申请 alert/sound，读取当前系统授权、横幅配置并显示状态。应用启用开关与声音偏好独立保存。测试提醒与短信消息使用不同标识；只有 `newMessages` 产生短信通知，历史与去重由 MessageStore 控制。点击携带 messageID 定位本地消息，不在通知正文暴露号码和正文。
+
+- [Apple：通知授权与当前设置](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications)
+- [Apple XNU：网络接口结构](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/net/if.h)
