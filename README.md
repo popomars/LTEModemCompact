@@ -31,6 +31,18 @@ zsh scripts/build-app.sh
 
 产物为 `dist/LTEModemCompact.app` 和独立诊断工具 `dist/ModemDiagnostics`。默认本地 ad-hoc 签名，仓库不含已公证安装包。可用 `LTE_MODEM_COMPACT_SIGN_IDENTITY` 指定自己的签名身份；签名不等于公证。
 
+## DMG 安装包
+
+在 Apple Silicon Mac 上执行：
+
+```sh
+zsh scripts/build-dmg.sh
+```
+
+生成 `dist/LTEModemCompact-0.2.0-macOS-arm64.dmg` 及 `.sha256` 校验文件。打开 DMG，将应用拖到 Applications，再从“应用程序”启动。更新前应正常退出旧版本；短信数据保留。
+
+DMG 只包含应用、Applications 快捷入口和安装说明，不打包诊断工具、开发文件或用户数据。当前预览包为本地 ad-hoc 签名，未使用 Developer ID 分发证书、未做 Apple 公证，系统可能阻止首次打开。打包脚本不会关闭或修改系统安全设置。
+
 ## 使用
 
 1. 连接已配置 ECM 的模块，并按 macOS 提示允许 USB 配件。这个应用不替新模块自动改写 ECM、ADB 或固件。
