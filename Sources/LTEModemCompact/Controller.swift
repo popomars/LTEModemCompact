@@ -3,9 +3,19 @@ import SwiftUI
 import UserNotifications
 import ServiceManagement
 import ModemCore
+import NetworkCore
+
+enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "网卡" }
 
 @MainActor final class Controller: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     @Published var snapshot = ModemSnapshot(status: "正在启动后台…", sim: nil, carrier: "", registered: false, network: "", messages: [], newMessages: [])
+    @Published var section: WorkspaceSection = .sms
+    @Published var network = NetworkSnapshot.preview
+    @Published var priority = NetworkPriorityState.unavailable
+    @Published var networkBusy = false
+    @Published var networkNotice = ""
+    private let directory: URL
+    private var networkTask: Task<Void, Never>?
     @Published var error = ""
     @Published var sending = false
     @Published var loginStatus = ""
@@ -17,12 +27,16 @@ import ModemCore
     var sleeping = false
     init(directory: URL, demo: Bool) throws {
         self.demo = demo
+        self.directory = directory
+        self.network = demo ? .preview : NetworkMonitor.read()
         engine = try ModemEngine(directory: directory)
         super.init()
     }
     func start() {
         if demo {
             snapshot = ModemSnapshot(status: "演示模式 · 未访问设备", sim: "demo", carrier: "中国联通", registered: true, network: "en15 · 192.0.2.2 · 示例本地链路", messages: [], newMessages: [])
+            network = .preview
+            priority = NetworkPriorityState(summary: "Wi-Fi 优先 · 演示", canPreferWiFi: false, canPreferCellular: false, canRestore: false, detail: "演示模式不会修改系统网络")
             onStatus?(snapshot.status); return
         }
         let center = UNUserNotificationCenter.current()
@@ -40,8 +54,37 @@ import ModemCore
                 do { try await Task.sleep(nanoseconds: 4_000_000_000) } catch { return }
             }
         }
+        networkTask = Task { [weak self] in
+            while !Task.isCancelled {
+                if let self, !self.sleeping { await self.refreshNetwork() }
+                do { try await Task.sleep(nanoseconds: 5_000_000_000) } catch { return }
+            }
+        }
         // Permissions and login startup remain explicit user choices.
         refreshLogin()
+    }
+    func refreshNetwork() async {
+        guard !demo else { return }
+        let directory = self.directory
+        let values = await Task.detached(priority: .utility) { (NetworkMonitor.read(), NetworkPriority.read(directory: directory)) }.value
+        guard !Task.isCancelled else { return }
+        network = values.0; priority = values.1
+    }
+    func setNetworkPreference(_ preference: NetworkPreference?) {
+        guard !demo, !networkBusy else { return }
+        networkBusy = true; networkNotice = "等待系统应用网络设置…"
+        let directory = self.directory
+        Task {
+            defer { networkBusy = false }
+            do {
+                try await Task.detached(priority: .userInitiated) {
+                    if let preference { try NetworkPriority.apply(preference, directory: directory) }
+                    else { try NetworkPriority.restore(directory: directory) }
+                }.value
+                networkNotice = preference == nil ? "已恢复上次切换前的顺序" : "网络服务优先级已保存；实际出口请查看系统主接口，VPN/分流可能另行选择路径"
+            } catch { networkNotice = error.localizedDescription }
+            await refreshNetwork()
+        }
     }
     func refreshLogin() {
         switch SMAppService.mainApp.status {
@@ -113,6 +156,6 @@ import ModemCore
             } else if action == UNNotificationDefaultActionIdentifier { self.onOpen?() }
         }
     }
-    func stop() async { task?.cancel(); task = nil; await engine.disconnect() }
+    func stop() async { networkTask?.cancel(); networkTask = nil; task?.cancel(); task = nil; await engine.disconnect() }
     func releaseForSleep() { sleeping = true; Task { await engine.disconnect() } }
 }

@@ -12,7 +12,9 @@ do {
     }
     if arguments.contains("--diagnose") {
         let state = NetworkMonitor.read()
-        let report: [String: Any] = ["milestone": 1, "status": state.status, "network": state.network, "device_count": state.deviceCount, "has_local_address": state.hasLocalAddress, "opens_usb": false, "sends_at": false]
+        let directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/NativeModem", isDirectory: true)
+        let priority = NetworkPriority.read(directory: directory)
+        let report: [String: Any] = ["primary_interface": state.primaryInterface ?? "unknown", "priority": priority.summary, "can_prefer_wifi": priority.canPreferWiFi, "can_prefer_cellular": priority.canPreferCellular, "milestone": 1, "status": state.status, "network": state.network, "device_count": state.deviceCount, "has_local_address": state.hasLocalAddress, "opens_usb": false, "sends_at": false]
         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
         print(String(decoding: data, as: UTF8.self)); exit(0)
     }

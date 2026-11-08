@@ -30,6 +30,15 @@ struct WorkspaceView: View {
             }.padding(18)
             Divider()
             if showSettings { settings }
+            HStack {
+                Picker("功能", selection: $controller.section) {
+                    ForEach(WorkspaceSection.allCases, id: \.self) { section in Text(section.rawValue).tag(section) }
+                }.pickerStyle(.segmented).frame(width: 240)
+                Spacer()
+            }.padding(.horizontal, 18).padding(.vertical, 10)
+            if controller.section == .network {
+                NetworkPane(controller: controller)
+            } else {
             HSplitView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack { Text("短信").font(.headline); Spacer(); Button { selection = nil; recipient = ""; bodyText = "" } label: { Image(systemName: "square.and.pencil") }.help("新短信") }.padding(12)
@@ -70,12 +79,13 @@ struct WorkspaceView: View {
                     }
                 }.padding(22).frame(minWidth: 350, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+            }
             if !controller.error.isEmpty {
                 Divider(); HStack { Image(systemName: "exclamationmark.circle"); Text(controller.error).textSelection(.enabled); Spacer(); Button("关闭") { controller.error = "" } }.font(.caption).foregroundStyle(.orange).padding(12)
             }
             Divider()
             HStack {
-                Image(systemName: "network"); Text(controller.snapshot.network).lineLimit(2)
+                Image(systemName: "network"); Text(controller.network.network).lineLimit(2)
                 Spacer(); Text("关闭窗口后继续后台待命")
             }.font(.caption).foregroundStyle(.secondary).padding(12)
         }
@@ -98,7 +108,7 @@ struct WorkspaceView: View {
                 Button("打开系统登录项设置") { SMAppService.openSystemSettingsLoginItems() }
                 Button("允许短信通知") { controller.retryNotifications() }
             }
-            Text("网卡由 macOS 管理，程序不会改变 Wi-Fi、VPN 或服务优先级。语音功能尚未实现。首次导入旧短信不弹通知，不删除模块短信。").font(.caption).foregroundStyle(.secondary)
+            Text("网卡由 macOS 管理，只有你点击网卡页的切换按钮才调整 Wi-Fi 与模块优先级；不会改变 VPN 设置。语音功能尚未实现。首次导入旧短信不弹通知，不删除模块短信。").font(.caption).foregroundStyle(.secondary)
         }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(.quaternary.opacity(0.3))
     }
 }

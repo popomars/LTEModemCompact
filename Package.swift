@@ -8,10 +8,11 @@ let package = Package(
     dependencies: [],
     targets: [
         .target(name: "NativeUSB", linkerSettings: [.linkedFramework("IOKit"), .linkedFramework("CoreFoundation")]),
-        .target(name: "NetworkCore", dependencies: ["NativeUSB"]),
+        .target(name: "NetworkCore", dependencies: ["NativeUSB"], linkerSettings: [.linkedFramework("Security")]),
         .target(name: "ModemCore", dependencies: ["NativeUSB"]),
         .executableTarget(name: "LTEModemCompact", dependencies: ["NetworkCore", "ModemCore"], linkerSettings: [.linkedFramework("AppKit"), .linkedFramework("ServiceManagement"), .linkedFramework("UserNotifications")]),
         .executableTarget(name: "ModemDiagnostics", dependencies: ["ModemCore"]),
-        .testTarget(name: "ModemCoreTests", dependencies: ["ModemCore"])
+        .testTarget(name: "ModemCoreTests", dependencies: ["ModemCore"]),
+        .testTarget(name: "NetworkCoreTests", dependencies: ["NetworkCore"])
     ]
 )

@@ -5,7 +5,7 @@
 | 目录 | 职责 |
 | --- | --- |
 | `Sources/NativeUSB` | 自研 C / IOKit 接口枚举、非抢占式打开、超时读写和释放 |
-| `Sources/NetworkCore` | 只读系统网卡与本地地址，不打开 AT |
+| `Sources/NetworkCore` | 系统网卡状态与显式网络优先级事务，不打开 AT |
 | `Sources/ModemCore` | 串行 AT 会话、短信编解码、存储和 SIM 生命周期 |
 | `Sources/LTEModemCompact` | AppKit 菜单栏、SwiftUI 短信窗口、通知和用户自选登录项 |
 | `Sources/ModemDiagnostics` | 与 GUI 共用引擎、存储和进程锁的有限诊断入口 |
@@ -32,9 +32,15 @@
 
 ## 设备边界
 
-不会设置 ECM、ADB、APN、IMS、默认出口或固件，也不包含语音通路。已配置 ECM 的网络连接由 macOS 自带驱动管理；应用退出不会主动断开它。
+不设置 ECM、ADB、APN、IMS 或固件，也不包含语音通路。仅在用户点击切换按钮时，通过 Authorization Services 和 SCPreferences 对调 Wi-Fi 与当前模块的服务位置；其他服务和代理/VPN 设置不变。已配置 ECM 的网络连接由 macOS 自带驱动管理；应用退出不会主动断开它。
 
 当前接口和固件白名单较窄。扩展支持必须先检查描述符、端点和设备身份，再补充测试与兼容性记录；不得通过遍历所有 bulk 接口发送探测命令。
+
+## 网络优先级事务
+
+通过 `SCPreferencesCreateWithAuthorization` 使用 macOS 原生授权。先独占配置会话并重新读取目标服务，再保存私有撤销记录、提交并应用顺序，最后回读确认。应用失败尝试恢复原顺序；若恢复也失败，明确要求核对系统网络配置。撤销要求当前位置和顺序与上次写入一致，避免覆盖其他操作。没有 root 常驻进程或 shell 提权命令。
+
+选择策略的测试覆盖其他服务不变、缺失/重复目标、外部改动后的撤销拒绝与自分配地址过滤；不将这些测试替代真实授权和实际路由验收。
 
 ## 参考
 
@@ -43,3 +49,5 @@
 - [Apple IOKit USB 文档](https://developer.apple.com/library/archive/documentation/DeviceDrivers/Conceptual/USBBook/USBIntro/USBIntro.html)
 - [Apple SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)
 - [Apple 通知文本回复](https://developer.apple.com/documentation/usernotifications/untextinputnotificationaction)
+
+- [Apple：SCPreferencesCreateWithAuthorization](https://developer.apple.com/documentation/systemconfiguration/scpreferencescreatewithauthorization(_:_:_:_:))

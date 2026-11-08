@@ -1,4 +1,4 @@
-LTEModemCompact 0.2.0 — Apple Silicon Mac
+LTEModemCompact 0.3.0 — Apple Silicon Mac
 
 安装
 1. 将 LTEModemCompact.app 拖到 Applications（应用程序）。
@@ -14,7 +14,9 @@ LTEModemCompact 0.2.0 — Apple Silicon Mac
 支持范围
 Apple Silicon（arm64），应用声明 macOS 13 或更高版本。
 目前实测 macOS 26.5；其他系统版本仍待验收。
-当前版本提供网卡状态和短信，语音尚未实现。
+当前版本提供独立网卡页面、Wi-Fi/4G 优先级切换和短信，语音尚未实现。
+切换时仅对调 Wi-Fi 与当前模块的位置，系统可能要求管理员授权；可以撤销上次切换。
+其他更靠前的网络服务或 Clash/VPN 仍可能影响实际出口；4G 可能消耗套餐流量。
 同一时间仅连接一只受支持模块，其他占用 AT 接口的客户端应先退出。
 
 签名

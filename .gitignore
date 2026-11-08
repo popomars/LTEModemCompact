@@ -9,6 +9,7 @@ Milestones/
 diagnostics/
 *.log
 messages-v*.json
+network-priority-backup.json
 sms-test-*.txt
 sms-expected-*.txt
 
