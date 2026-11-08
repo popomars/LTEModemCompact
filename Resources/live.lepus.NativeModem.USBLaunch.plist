@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>live.lepus.NativeModem.USBLaunch</string>
+<key>BundleProgram</key><string>Contents/Library/LoginItems/LTEModemCompact USB Launcher.app/Contents/MacOS/USBLauncher</string>
+<key>LimitLoadToSessionType</key><string>Aqua</string>
+<key>ProcessType</key><string>Interactive</string>
+<key>LaunchEvents</key><dict><key>com.apple.iokit.matching</key><dict>
+<key>SupportedModemAttached</key><dict>
+<key>IOProviderClass</key><string>IOUSBHostDevice</string>
+<key>idVendor</key><integer>11427</integer>
+<key>idProduct</key><integer>16390</integer>
+<key>IOMatchLaunchStream</key><true/>
+</dict></dict></dict>
+</dict></plist>

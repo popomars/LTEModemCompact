@@ -51,6 +51,7 @@ import SwiftUI
         editItem.submenu = edit; main.addItem(editItem); NSApp.mainMenu = main
     }
     func applicationDidBecomeActive(_ notification: Notification) {
+        controller.refreshDeviceLaunch()
         Task { await controller.refreshNotifications() }
     }
     @objc private func openNetwork() { controller.section = .network; openWindow() }

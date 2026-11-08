@@ -5,6 +5,7 @@
 | 目录 | 职责 |
 | --- | --- |
 | `Sources/NativeUSB` | 自研 C / IOKit 接口枚举、非抢占式打开、超时读写和释放 |
+| `Sources/LaunchSupport` / `USBLaunchEvents` / `USBLauncher` | 默认关闭的 USB 事件启动策略、XPC 桥接及随包助手 |
 | `Sources/SystemNetworkStats` | 只读获取 Darwin 网卡 64 位累计计数 |
 | `Sources/NetworkCore` | 系统网卡状态、流量累计与显式网络优先级事务，不打开 AT |
 | `Sources/ModemCore` | 串行 AT 会话、短信编解码、存储和 SIM 生命周期 |
@@ -67,3 +68,7 @@
 
 - [Apple：通知授权与当前设置](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications)
 - [Apple XNU：网络接口结构](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/net/if.h)
+
+## 可选 USB 插入启动
+
+LaunchAgent plist 位于 Contents/Library/LaunchAgents，BundleProgram 指向 Contents/Library/LoginItems 内的助手 app。内层先签名，外层后签名，不使用外部共享实例或 root daemon。SMAppService 只在用户主动选择时注册；助手消耗 XPC 事件并核实 VID/PID 后才启动它所属的主 bundle，不接收任意路径或远程可执行内容。启动策略、错误模式默认关闭、重复事件和主程序已运行的抑制由独立测试覆盖。硬件入口 ISO 与部署试验完全独立于应用运行流程。

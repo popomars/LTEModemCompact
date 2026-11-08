@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import ServiceManagement
 import ModemCore
+import LaunchSupport
 
 struct WorkspaceView: View {
     @ObservedObject var controller: Controller
@@ -26,7 +27,7 @@ struct WorkspaceView: View {
                     Text(controller.snapshot.status).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 }
                 Spacer()
-                Button { showSettings.toggle(); controller.refreshLogin(); Task { await controller.refreshNotifications() } } label: { Image(systemName: "gearshape") }.help("后台与通知设置")
+                Button { showSettings.toggle(); controller.refreshLogin(); controller.refreshDeviceLaunch(); Task { await controller.refreshNotifications() } } label: { Image(systemName: "gearshape") }.help("后台与通知设置")
             }.padding(18)
             Divider()
             HStack {
@@ -132,6 +133,18 @@ struct WorkspaceView: View {
     }
     private var settings: some View {
         VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("插入模块时")
+                Picker("插入模块时", selection: Binding(get: { controller.deviceLaunchMode }, set: { controller.setDeviceLaunchMode($0) })) {
+                    ForEach(DeviceLaunchMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                }.labelsHidden().frame(width: 200).disabled(controller.demo || controller.deviceLaunchBusy)
+                if controller.deviceLaunchBusy { ProgressView().controlSize(.small) }
+                Spacer()
+                Button("GitHub 下载页") { controller.openDownloadPage() }
+            }
+            Text(controller.deviceLaunchStatus).font(.caption).foregroundStyle(.secondary)
+            Text("首次开启可能需要在系统登录项中允许后台项目。它只响应受支持模块的插入事件；关闭可撤销注册。只用网卡无需启动应用。").font(.caption).foregroundStyle(.secondary)
+            Divider()
             Text(controller.loginStatus).font(.callout)
             HStack {
                 Button("启用登录自动启动") { controller.enableLogin() }

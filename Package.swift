@@ -8,12 +8,16 @@ let package = Package(
     dependencies: [],
     targets: [
         .target(name: "NativeUSB", linkerSettings: [.linkedFramework("IOKit"), .linkedFramework("CoreFoundation")]),
+        .target(name: "LaunchSupport"),
+        .target(name: "USBLaunchEvents", linkerSettings: [.linkedFramework("IOKit")]),
+        .executableTarget(name: "USBLauncher", dependencies: ["LaunchSupport", "USBLaunchEvents"], linkerSettings: [.linkedFramework("AppKit")]),
         .target(name: "SystemNetworkStats"),
         .target(name: "NetworkCore", dependencies: ["NativeUSB", "SystemNetworkStats"], linkerSettings: [.linkedFramework("Security")]),
         .target(name: "ModemCore", dependencies: ["NativeUSB"]),
-        .executableTarget(name: "LTEModemCompact", dependencies: ["NetworkCore", "ModemCore"], linkerSettings: [.linkedFramework("AppKit"), .linkedFramework("ServiceManagement"), .linkedFramework("UserNotifications")]),
+        .executableTarget(name: "LTEModemCompact", dependencies: ["NetworkCore", "ModemCore", "LaunchSupport"], linkerSettings: [.linkedFramework("AppKit"), .linkedFramework("ServiceManagement"), .linkedFramework("UserNotifications")]),
         .executableTarget(name: "ModemDiagnostics", dependencies: ["ModemCore"]),
         .testTarget(name: "ModemCoreTests", dependencies: ["ModemCore"]),
-        .testTarget(name: "NetworkCoreTests", dependencies: ["NetworkCore"])
+        .testTarget(name: "NetworkCoreTests", dependencies: ["NetworkCore"]),
+        .testTarget(name: "LaunchSupportTests", dependencies: ["LaunchSupport"])
     ]
 )

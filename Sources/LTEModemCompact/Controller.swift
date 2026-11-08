@@ -4,6 +4,7 @@ import UserNotifications
 import ServiceManagement
 import ModemCore
 import NetworkCore
+import LaunchSupport
 
 enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "网卡" }
 
@@ -30,6 +31,9 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
     @Published var error = ""
     @Published var sending = false
     @Published var loginStatus = ""
+    @Published var deviceLaunchMode = DeviceLaunchPolicy.mode(UserDefaults.standard.string(forKey: DeviceLaunchPolicy.modeKey))
+    @Published var deviceLaunchStatus = ""
+    @Published var deviceLaunchBusy = false
     let demo: Bool
     private let engine: ModemEngine
     private var task: Task<Void, Never>?
@@ -75,6 +79,7 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
         }
         // Permissions and login startup remain explicit user choices.
         refreshLogin()
+        refreshDeviceLaunch()
         Task { await refreshNotifications() }
     }
     func refreshNetwork() async {

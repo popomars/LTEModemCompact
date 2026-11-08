@@ -1,11 +1,12 @@
-LTEModemCompact 0.4.0 — Apple Silicon Mac
+LTEModemCompact 0.5.0 — Apple Silicon Mac
 
 安装
 1. 将 LTEModemCompact.app 拖到 Applications（应用程序）。
 2. 从“应用程序”打开 LTEModemCompact。
 3. 点击菜单栏天线图标，选择“短信与网卡状态…”。本应用默认不显示 Dock 图标。
 4. 在短信页点击“开启短信通知”并允许；设置中可用“测试通知”验证提醒，不发送短信。
-5. 连接已配置 ECM 的受支持模块，并按系统提示允许 USB 配件。
+5. 可在设置中开启“插入模块时：先询问 / 自动后台启动”；若提示，允许对应后台项目。
+6. 连接已配置 ECM 的受支持模块，并按系统提示允许 USB 配件。
 
 升级
 先正常退出旧版本再替换应用。新旧版本共用应用身份与本地数据位置，不要同时运行。
