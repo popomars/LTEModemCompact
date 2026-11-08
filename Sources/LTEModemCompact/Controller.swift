@@ -1,0 +1,118 @@
+import AppKit
+import SwiftUI
+import UserNotifications
+import ServiceManagement
+import ModemCore
+
+@MainActor final class Controller: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
+    @Published var snapshot = ModemSnapshot(status: "正在启动后台…", sim: nil, carrier: "", registered: false, network: "", messages: [], newMessages: [])
+    @Published var error = ""
+    @Published var sending = false
+    @Published var loginStatus = ""
+    let demo: Bool
+    private let engine: ModemEngine
+    private var task: Task<Void, Never>?
+    var onStatus: ((String) -> Void)?
+    var onOpen: (() -> Void)?
+    var sleeping = false
+    init(directory: URL, demo: Bool) throws {
+        self.demo = demo
+        engine = try ModemEngine(directory: directory)
+        super.init()
+    }
+    func start() {
+        if demo {
+            snapshot = ModemSnapshot(status: "演示模式 · 未访问设备", sim: "demo", carrier: "中国联通", registered: true, network: "en15 · 192.0.2.2 · 示例本地链路", messages: [], newMessages: [])
+            onStatus?(snapshot.status); return
+        }
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        let reply = UNTextInputNotificationAction(identifier: "reply", title: "回复", options: [], textInputButtonTitle: "发送", textInputPlaceholder: "短信内容")
+        center.setNotificationCategories([UNNotificationCategory(identifier: "incomingSMS", actions: [reply], intentIdentifiers: [], options: [])])
+        task = Task { [weak self] in
+            while !Task.isCancelled {
+                if let self, !self.sleeping {
+                    let next = await self.engine.poll()
+                    guard !Task.isCancelled else { return }
+                    self.snapshot = next; self.onStatus?(next.status)
+                    for message in next.newMessages { await self.notify(message) }
+                }
+                do { try await Task.sleep(nanoseconds: 4_000_000_000) } catch { return }
+            }
+        }
+        // Permissions and login startup remain explicit user choices.
+        refreshLogin()
+    }
+    func refreshLogin() {
+        switch SMAppService.mainApp.status {
+        case .enabled: loginStatus = "登录自动启动：已启用"
+        case .requiresApproval: loginStatus = "登录自动启动：等待系统批准"
+        case .notRegistered: loginStatus = "登录自动启动：未启用"
+        case .notFound: loginStatus = "登录自动启动：应用位置或签名不可用"
+        @unknown default: loginStatus = "登录自动启动：状态未知"
+        }
+    }
+    func enableLogin() {
+        guard !demo else { return }
+        do { try SMAppService.mainApp.register(); refreshLogin() }
+        catch { refreshLogin(); self.error = "后台启动注册失败：\(error.localizedDescription)" }
+    }
+    func disableLogin() {
+        guard !demo else { return }
+        Task {
+            do { try await SMAppService.mainApp.unregister(); refreshLogin() }
+            catch { self.error = "取消自动启动失败：\(error.localizedDescription)" }
+        }
+    }
+    func retryNotifications() {
+        guard !demo else { return }
+        Task {
+            do {
+                let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+                if !granted { error = "通知未获允许；请在系统设置 → 通知 → LTEModemCompact 中开启" }
+            } catch { self.error = error.localizedDescription }
+        }
+    }
+    func send(to number: String, text: String, sim: String) async -> Bool {
+        guard !demo else { error = "演示模式不会发送短信"; return false }
+        guard !sending else { return false }
+        sending = true; error = ""
+        defer { sending = false }
+        do { snapshot = try await engine.send(to: number, text: text, expectedSIM: sim); return true }
+        catch { self.error = error.localizedDescription; snapshot = await engine.current(); return false }
+    }
+    func notify(_ message: Message) async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "收到短信"
+        // Avoid putting private SMS bodies or verification codes on the lock screen.
+        content.body = "点击查看；展开可快捷回复"
+        content.categoryIdentifier = "incomingSMS"
+        content.userInfo = ["messageID": message.id]
+        content.sound = .default
+        do { try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: message.id, content: content, trigger: nil)) }
+        catch { self.error = "短信已保存，通知发送失败：\(error.localizedDescription)" }
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) { completionHandler([.banner, .sound]) }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let id = response.notification.request.content.userInfo["messageID"] as? String
+        let text = (response as? UNTextInputNotificationResponse)?.userText
+        let action = response.actionIdentifier
+        Task { @MainActor in
+            defer { completionHandler() }
+            if action == "reply", let id, let text {
+                do {
+                    let (peer, sim) = try await self.engine.replyTarget(id: id)
+                    let sent = await self.send(to: peer, text: text, sim: sim)
+                    let result = UNMutableNotificationContent()
+                    result.title = sent ? "短信已提交给模块" : "短信回复未确认"
+                    result.body = sent ? "送达尚未确认；可点击查看记录" : self.error
+                    try await center.add(UNNotificationRequest(identifier: UUID().uuidString, content: result, trigger: nil))
+                } catch { self.error = error.localizedDescription; self.onOpen?() }
+            } else if action == UNNotificationDefaultActionIdentifier { self.onOpen?() }
+        }
+    }
+    func stop() async { task?.cancel(); task = nil; await engine.disconnect() }
+    func releaseForSleep() { sleeping = true; Task { await engine.disconnect() } }
+}

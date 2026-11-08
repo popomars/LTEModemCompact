@@ -1,0 +1,23 @@
+.build/
+dist/
+.swiftpm/
+.DS_Store
+*.xcuserstate
+
+# Local prototypes, artifacts and device/user data are not source releases.
+Milestones/
+diagnostics/
+*.log
+messages-v*.json
+sms-test-*.txt
+sms-expected-*.txt
+
+# Never vendor adjacent research projects or device runtime binaries.
+source/
+third_party/
+voice-runtime/
+apps/
+downloads/
+build-deps/
+*.ko
+*.dylib
