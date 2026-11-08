@@ -31,7 +31,7 @@ static int supported(io_service_t service, NMDevice *device) {
     // Only the identity and AT layout verified on this project's QDC507 hardware.
     // In particular, never touch ECM, audio or ff/42/01 (ADB).
     if (vendor != 0x2ca3 || product != 0x4006 || number != 2 || cls != 0xff ||
-        (sub == 0x42 && proto == 1)) return 0;
+        sub != 0 || proto != 0) return 0;
     uint64_t registry = 0;
     if (IORegistryEntryGetRegistryEntryID(service, &registry) != KERN_SUCCESS) return 0;
     *device = (NMDevice){registry, (uint32_t)location, (uint16_t)vendor, (uint16_t)product};

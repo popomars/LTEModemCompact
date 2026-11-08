@@ -23,3 +23,6 @@ downloads/
 build-deps/
 *.ko
 *.dylib
+
+# Per-device local configuration backups
+device-setup/

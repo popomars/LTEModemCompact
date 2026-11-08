@@ -23,6 +23,8 @@ import SwiftUI
         show.target = self; menu.addItem(show)
         let network = NSMenuItem(title: "网卡与上网优先级…", action: #selector(openNetwork), keyEquivalent: "")
         network.target = self; menu.addItem(network)
+        let setup = NSMenuItem(title: "新模块初始化…", action: #selector(openSetup), keyEquivalent: "")
+        setup.target = self; menu.addItem(setup)
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "退出 LTEModemCompact", action: #selector(quitApp), keyEquivalent: "q")
         quit.target = self; menu.addItem(quit); item.menu = menu
@@ -54,6 +56,7 @@ import SwiftUI
         controller.refreshDeviceLaunch()
         Task { await controller.refreshNotifications() }
     }
+    @objc private func openSetup() { controller.section = .setup; openWindow() }
     @objc private func openNetwork() { controller.section = .network; openWindow() }
     @objc func openWindow() {
         if window == nil {

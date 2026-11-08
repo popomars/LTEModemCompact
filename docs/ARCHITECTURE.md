@@ -34,7 +34,7 @@
 
 ## 设备边界
 
-不设置 ECM、ADB、APN、IMS 或固件，也不包含语音通路。仅在用户点击切换按钮时，通过 Authorization Services 和 SCPreferences 对调 Wi-Fi 与当前模块的服务位置；其他服务和代理/VPN 设置不变。已配置 ECM 的网络连接由 macOS 自带驱动管理；应用退出不会主动断开它。
+仅在用户确认初始化/恢复时，按严格设备白名单备份并设置 ECM 网络模式、回读与请求重启；不设置 ADB、APN、IMS 或固件，也不包含语音通路。仅在用户点击切换按钮时，通过 Authorization Services 和 SCPreferences 对调 Wi-Fi 与当前模块的服务位置；其他服务和代理/VPN 设置不变。已配置 ECM 的网络连接由 macOS 自带驱动管理；应用退出不会主动断开它。
 
 当前接口和固件白名单较窄。扩展支持必须先检查描述符、端点和设备身份，再补充测试与兼容性记录；不得通过遍历所有 bulk 接口发送探测命令。
 
@@ -72,3 +72,7 @@
 ## 可选 USB 插入启动
 
 LaunchAgent plist 位于 Contents/Library/LaunchAgents，BundleProgram 指向 Contents/Library/LoginItems 内的助手 app。内层先签名，外层后签名，不使用外部共享实例或 root daemon。SMAppService 只在用户主动选择时注册；助手消耗 XPC 事件并核实 VID/PID 后才启动它所属的主 bundle，不接收任意路径或远程可执行内容。启动策略、错误模式默认关闭、重复事件和主程序已运行的抑制由独立测试覆盖。硬件入口 ISO 与部署试验完全独立于应用运行流程。
+
+## 新模块配置事务
+
+DeviceSetup 由同一 ModemEngine actor 串行调用；维护期间关闭原 AT 会话并暂停短信轮询及发送。检查产生一次性计划，执行前重新核对 USB 身份与完整设备状态。原配置以设备身份哈希隔离、私有落盘并同步回读，未知或冲突状态拒绝写入。只写 usbnet，回读正确后发送一次 CFUN 重启请求；不确定结果不自动重试。详见 [设备初始化](DEVICE-SETUP.md)。

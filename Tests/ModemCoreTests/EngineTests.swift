@@ -8,6 +8,12 @@ final class VirtualModem: ATByteChannel {
     var sim = "9999000000000000000"
     var model = "QDC507"
     var firmware = "QDC507GLEFM21"
+    var imei = String(repeating: "1", count: 15)
+    var usbMode = 0
+    var usbConfig = "0x2CA3,0x4006,1,1,1,1,1,0,0"
+    var failSetter = false
+    var failReboot = false
+    var beforeSetter: (() throws -> Void)?
     var pdus: [String] = []
     var commands: [String] = []
     var swapDuringList = false
@@ -29,6 +35,15 @@ final class VirtualModem: ATByteChannel {
         case "AT": break
         case "AT+CGMM": response = model
         case "AT+CGMR": response = firmware
+        case "AT+CGSN": response = imei
+        case "AT+QCFG=\"usbcfg\"": response = "+QCFG: \"usbcfg\", \(usbConfig)"
+        case "AT+QCFG=\"usbnet\"": response = "+QCFG: \"usbnet\", \(usbMode)"
+        case "AT+QCFG=\"usbnet\",0", "AT+QCFG=\"usbnet\",1":
+            try beforeSetter?()
+            usbMode = command.hasSuffix("1") ? 1 : 0
+            if failSetter { throw ModemError.message("uncertain write") }
+        case "AT+CFUN=1,1":
+            if failReboot { throw ModemError.message("USB disappeared") }
         case "AT+CPIN?":
             if failSIM { throw ModemError.message("SIM 已移除") }
             response = "+CPIN: READY"

@@ -33,10 +33,19 @@ struct WorkspaceView: View {
             HStack {
                 Picker("功能", selection: $controller.section) {
                     ForEach(WorkspaceSection.allCases, id: \.self) { section in Text(section.rawValue).tag(section) }
-                }.pickerStyle(.segmented).frame(width: 240)
+                }.pickerStyle(.segmented).frame(width: 340)
                 Spacer()
             }.padding(.horizontal, 18).padding(.vertical, 10)
-            if controller.section == .network {
+            if controller.setupActive {
+                HStack {
+                    Label("初始化期间短信暂停", systemImage: "pause.circle")
+                    Spacer()
+                    Button("结束初始化并恢复短信") { controller.endSetup() }.disabled(controller.setupBusy)
+                }.font(.callout).padding(12).background(.orange.opacity(0.1))
+            }
+            if controller.section == .setup {
+                DeviceSetupPane(controller: controller)
+            } else if controller.section == .network {
                 NetworkPane(controller: controller)
             } else {
             HStack {
@@ -85,7 +94,7 @@ struct WorkspaceView: View {
                         Spacer()
                         Button(controller.sending ? "正在提交…" : "发送") {
                             pendingSIM = controller.snapshot.sim; pendingRecipient = recipient; pendingText = bodyText; confirmSend = true
-                        }.buttonStyle(.borderedProminent).disabled(controller.sending || !controller.snapshot.canSend || segmentCount == nil)
+                        }.buttonStyle(.borderedProminent).disabled(controller.setupActive || controller.sending || !controller.snapshot.canSend || segmentCount == nil)
                     }
                 }.padding(22).frame(minWidth: 350, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }

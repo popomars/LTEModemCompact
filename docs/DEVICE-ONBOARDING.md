@@ -28,6 +28,10 @@
 
 试验仅使用 /tmp；断电后入口不会保留。模块系统分区当前只读，尚未找到并验证可用的用户启动钩子。持久安装需要另外设计可回退的启动集成；先通过临时共存试验，再审查具体写入与恢复步骤，不能直接宣称“任意 Mac 插上即有入口”。
 
+## 临时试验结果（2026-11-08）
+
+IG830 经授权运行了一次 90 秒临时试验。追加 mass_storage 期间 Mac 没有观察到安装盘，ECM/ADB 暂时消失。脚本自动恢复原组合，事后核实 LUN backing 为空、ro 恢复为 0、enable 为 1，原网卡与 ADB 回来，Wi-Fi 默认出口保持。不能把此结果记为安装盘成功或支持持久部署；原因尚未确定。应用初始化页因此不提供安装盘部署。
+
 ## 参考
 
 - [Apple SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)

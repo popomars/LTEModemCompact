@@ -6,6 +6,7 @@
 
 | 数据 | 作用 |
 | --- | --- |
+| `device-setup/<hash>.json` | 当前模块的原网络模式、USB 组合、型号与固件；IMEI 仅取 SHA-256 作本机备份匹配，不保存原始值，哈希仍属敏感关联数据 |
 | `agent.lock` | 防止两个本项目进程同时控制同一模块 |
 | `messages-v1.json` | 短信内容、对端号码、时间、原始 PDU、分段、发送状态与本地 SIM 分组 |
 | `network-priority-backup.json` | 上次切换前后的网络服务标识和顺序，仅本机保存，用于安全撤销 |

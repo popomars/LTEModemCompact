@@ -18,9 +18,17 @@ import ModemCore
             guard lock >= 0, flock(lock, LOCK_EX | LOCK_NB) == 0 else { throw ModemError.message("LTEModemCompact 已在运行；请先正常退出再诊断") }
             defer { close(lock) }
             if args == ["--probe"] { try emit(DeviceProbe.run()); return }
+            if args == ["--inspect-setup"] {
+                let engine = try ModemEngine(directory: directory)
+                let report = try await engine.inspectDeviceSetup()
+                try emit(["model": report.model, "firmware": report.firmware, "ecm_configured": report.usbMode == 1,
+                          "can_initialize": report.canEnableECM, "can_restore": report.canRestore, "queries_only": true])
+                await engine.endDeviceSetup()
+                return
+            }
             let allowed: Set<String> = ["--poll-count", "--send-to", "--text-file", "--expected-reply-file"]
             guard args.count % 2 == 0, stride(from: 0, to: args.count, by: 2).allSatisfy({ allowed.contains(args[$0]) }), let count = Int(option("--poll-count") ?? "1"), (1...60).contains(count) else {
-                throw ModemError.message("用法：--probe 或 --poll-count 1…60 [--send-to NUMBER --text-file PATH] [--expected-reply-file PATH]")
+                throw ModemError.message("用法：--probe、--inspect-setup 或 --poll-count 1…60 [--send-to NUMBER --text-file PATH] [--expected-reply-file PATH]")
             }
             guard (option("--send-to") == nil) == (option("--text-file") == nil) else { throw ModemError.message("发送需要同时指定号码和正文文件") }
             let expected = try option("--expected-reply-file").map { try String(contentsOfFile: $0, encoding: .utf8) }

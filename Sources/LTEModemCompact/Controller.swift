@@ -6,13 +6,17 @@ import ModemCore
 import NetworkCore
 import LaunchSupport
 
-enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "网卡" }
+enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "网卡", setup = "初始化" }
 
 @MainActor final class Controller: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     @Published var snapshot = ModemSnapshot(status: "正在启动后台…", sim: nil, carrier: "", registered: false, network: "", messages: [], newMessages: [])
     @Published var section: WorkspaceSection = .sms
     @Published var network = NetworkSnapshot.preview
     @Published var priority = NetworkPriorityState.unavailable
+    @Published var setupReport: DeviceSetupReport?
+    @Published var setupActive = false
+    @Published var setupBusy = false
+    @Published var setupNotice = ""
     @Published var networkBusy = false
     @Published var networkNotice = ""
     @Published var traffic = TrafficSnapshot()
@@ -82,6 +86,39 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
         refreshDeviceLaunch()
         Task { await refreshNotifications() }
     }
+    func inspectSetup() {
+        guard !demo, !setupBusy, !sending else { return }
+        setupActive = true; setupBusy = true; setupReport = nil
+        setupNotice = "正在检查设备，短信暂时暂停…"
+        Task {
+            defer { setupBusy = false }
+            do {
+                setupReport = try await engine.inspectDeviceSetup()
+                setupNotice = setupReport?.detail ?? ""
+            } catch { setupNotice = error.localizedDescription }
+            snapshot = await engine.current()
+        }
+    }
+    func applySetup(token: UUID, restoring: Bool) {
+        guard !demo, !setupBusy, setupActive else { return }
+        setupBusy = true; setupReport = nil; setupNotice = "正在备份并处理配置…"
+        Task {
+            defer { setupBusy = false }
+            do { setupNotice = try await engine.applyDeviceSetup(token: token, restoring: restoring) }
+            catch { setupNotice = error.localizedDescription }
+            snapshot = await engine.current()
+        }
+    }
+    func endSetup() {
+        guard !setupBusy else { return }
+        setupBusy = true
+        Task {
+            await engine.endDeviceSetup()
+            setupReport = nil; setupActive = false; setupBusy = false
+            setupNotice = "已退出初始化，短信后台已恢复。"
+            snapshot = await engine.poll()
+        }
+    }
     func refreshNetwork() async {
         guard !demo, !networkRefreshing, !sleeping else { return }
         networkRefreshing = true
@@ -142,7 +179,7 @@ enum WorkspaceSection: String, CaseIterable { case sms = "短信", network = "�
     }
     func send(to number: String, text: String, sim: String) async -> Bool {
         guard !demo else { error = "演示模式不会发送短信"; return false }
-        guard !sending else { return false }
+        guard !sending, !setupActive else { error = "初始化期间短信暂停，请先结束初始化"; return false }
         sending = true; error = ""
         defer { sending = false }
         do { snapshot = try await engine.send(to: number, text: text, expectedSIM: sim); return true }

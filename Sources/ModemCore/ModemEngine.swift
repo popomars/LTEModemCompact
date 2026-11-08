@@ -46,13 +46,17 @@ public actor ModemEngine {
     private var registered = false
     private var status = "等待插入 IG830 / IG832"
     private var supportedModel = false
+    private let setup: DeviceSetup
+    private var setupActive = false
     public init(directory: URL) throws {
         store = try MessageStore(directory: directory)
         discover = USBDevice.inventory
         connect = { try ATSession(device: $0) }
+        setup = DeviceSetup(directory: directory, discover: USBDevice.inventory, connect: { try ATSession(device: $0) })
     }
     init(directory: URL, discover: @escaping () throws -> [USBDevice], connect: @escaping (USBDevice) throws -> ATSession) throws {
         store = try MessageStore(directory: directory); self.discover = discover; self.connect = connect
+        setup = DeviceSetup(directory: directory, discover: discover, connect: connect)
     }
     public func disconnect() { session = nil; deviceID = nil; sim = nil; supportedModel = false; registered = false; carrier = "" }
     private func checkIdentity(_ channel: ATSession) throws {
@@ -83,6 +87,7 @@ public actor ModemEngine {
         return result
     }
     public func poll() -> ModemSnapshot {
+        if setupActive { return snapshot(incoming: []) }
         var incoming: [Message] = []
         do {
             let devices = try discover()
@@ -143,7 +148,35 @@ public actor ModemEngine {
         guard let message = store.message(id: id), message.state == .received, message.complete else { throw ModemError.message("未找到可回复的短信") }
         return (message.peer, message.sim)
     }
+    public func inspectDeviceSetup() throws -> DeviceSetupReport {
+        setupActive = true
+        disconnect()
+        status = "设备初始化检查中 · 短信暂停"
+        do {
+            let report = try setup.inspect()
+            status = "设备检查完成 · 短信暂停"
+            return report
+        }
+        catch { status = "设备初始化检查未通过 · 短信暂停"; throw error }
+    }
+    public func applyDeviceSetup(token: UUID, restoring: Bool) throws -> String {
+        guard setupActive else { throw ModemError.message("请先检查设备") }
+        disconnect()
+        status = "配置处理中 · 短信暂停"
+        do {
+            let result = try setup.apply(token: token, restoring: restoring)
+            status = "配置已回读 · 等待模块恢复 · 短信暂停"
+            return result
+        } catch {
+            status = "配置操作已停止 · 请重新检查 · 短信暂停"
+            throw error
+        }
+    }
+    public func endDeviceSetup() {
+        setup.invalidate(); setupActive = false; status = "正在恢复短信后台…"
+    }
     public func send(to number: String, text: String, expectedSIM: String) throws -> ModemSnapshot {
+        guard !setupActive else { throw ModemError.message("设备初始化期间暂停短信发送，请先结束初始化") }
         let parts = try SMSCodec.encode(to: number, text: text)
         guard let channel = session, supportedModel else { throw ModemError.message("模块未就绪；没有发送短信") }
         // Recheck the SIM immediately before submission; no routing by a stale UI selection.
