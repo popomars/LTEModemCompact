@@ -2,7 +2,7 @@
 
 面向 Apple Silicon Mac 的轻量 USB 蜂窝模块助手。原生 Swift + C 实现，只有苹果系统框架依赖，无第三方 Swift Package、外部后台服务或网络监听端口；可选插入启动助手随应用打包。
 
-当前 **v0.6.0，开发预览版**：系统 ECM 联网、独立网卡页面、Wi-Fi/4G 优先级切换、网卡流量统计和独立短信收发与通知。新增受限的新模块 ECM 初始化。语音尚未实现。
+当前 **v0.6.1，开发预览版**：系统 ECM 联网、独立网卡页面、Wi-Fi/4G 优先级切换、网卡流量统计和独立短信收发与通知。提供受限的新模块 ECM 初始化及离线分步指引。语音尚未实现。
 
 ## 支持范围与当前进度
 
@@ -45,7 +45,7 @@ zsh scripts/build-app.sh
 zsh scripts/build-dmg.sh
 ```
 
-生成 `dist/LTEModemCompact-0.6.0-macOS-arm64.dmg` 及 `.sha256` 校验文件。打开 DMG，将应用拖到 Applications，再从“应用程序”启动。更新前应正常退出旧版本；短信数据保留。
+生成 `dist/LTEModemCompact-0.6.1-macOS-arm64.dmg` 及 `.sha256` 校验文件。打开 DMG，将应用拖到 Applications，再从“应用程序”启动。更新前应正常退出旧版本；短信数据保留。
 
 DMG 使用浅色背景、拖拽指引、固定图标位置和自制应用图标。内容仅含应用、Applications 快捷入口、安装说明及隐藏的背景与 Finder 布局文件，不打包诊断工具、开发文件或用户数据。当前预览包为本地 ad-hoc 签名，未使用 Developer ID 分发证书、未做 Apple 公证，系统可能阻止首次打开。打包脚本不会关闭或修改系统安全设置。
 
