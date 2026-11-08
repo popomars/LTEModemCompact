@@ -11,7 +11,7 @@
 | `Sources/ModemDiagnostics` | 与 GUI 共用引擎、存储和进程锁的有限诊断入口 |
 | `Tests/ModemCoreTests` | 合成通道和协议夹具，不连接 USB、不发送真实短信 |
 
-依赖仅为苹果系统框架和系统 Swift 库。Swift Package 没有外部依赖，也不引用父目录。公开仓库不包含任何第三方项目代码、社区内核模块、PCM helper 或 ADB。
+应用运行依赖仅为苹果系统框架和系统 Swift 库。Swift Package 没有外部依赖，也不引用父目录。公开仓库不包含任何第三方项目代码、社区内核模块、PCM helper 或 ADB。
 
 ## 数据流
 
@@ -51,3 +51,9 @@
 - [Apple 通知文本回复](https://developer.apple.com/documentation/usernotifications/untextinputnotificationaction)
 
 - [Apple：SCPreferencesCreateWithAuthorization](https://developer.apple.com/documentation/systemconfiguration/scpreferencescreatewithauthorization(_:_:_:_:))
+
+## 安装包外观
+
+`scripts/render-installer-assets.swift` 用 AppKit 绘制原创图标和两倍分辨率的安装背景；构建时生成 ICNS，签名前装入应用。图片不依赖外部下载，生成文件仅留在 `dist`。
+
+`scripts/configure-dmg-layout.py` 在临时可写镜像中写入 Finder 窗口大小、背景别名及图标位置，再转成只读压缩 DMG。仅构建阶段使用 [ds-store](https://ds-store.readthedocs.io/en/latest/) 1.3.3 和 mac-alias 2.2.2；不复制其源码或运行环境到公开仓库、应用或镜像。构建不控制 Finder，也不改用户的 Finder 偏好。

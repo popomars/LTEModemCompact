@@ -2,7 +2,7 @@
 
 面向 Apple Silicon Mac 的轻量 USB 蜂窝模块助手。原生 Swift + C 实现，只有苹果系统框架依赖，无第三方 Swift Package、后台服务或网络监听端口。
 
-当前 **v0.3.0，开发预览版**：系统 ECM 联网、独立网卡页面、Wi-Fi/4G 优先级切换和独立短信收发。语音尚未实现。
+当前 **v0.3.1，开发预览版**：系统 ECM 联网、独立网卡页面、Wi-Fi/4G 优先级切换和独立短信收发。语音尚未实现。
 
 ## 支持范围与当前进度
 
@@ -34,15 +34,15 @@ zsh scripts/build-app.sh
 
 ## DMG 安装包
 
-在 Apple Silicon Mac 上执行：
+在 Apple Silicon Mac 上执行（额外需要 Python 3；首次打包会在忽略的 `.build/dmg-tools` 中安装固定版本的 `ds-store` 和 `mac-alias`，仅用于生成 Finder 布局，不进入应用或安装包）：
 
 ```sh
 zsh scripts/build-dmg.sh
 ```
 
-生成 `dist/LTEModemCompact-0.3.0-macOS-arm64.dmg` 及 `.sha256` 校验文件。打开 DMG，将应用拖到 Applications，再从“应用程序”启动。更新前应正常退出旧版本；短信数据保留。
+生成 `dist/LTEModemCompact-0.3.1-macOS-arm64.dmg` 及 `.sha256` 校验文件。打开 DMG，将应用拖到 Applications，再从“应用程序”启动。更新前应正常退出旧版本；短信数据保留。
 
-DMG 只包含应用、Applications 快捷入口和安装说明，不打包诊断工具、开发文件或用户数据。当前预览包为本地 ad-hoc 签名，未使用 Developer ID 分发证书、未做 Apple 公证，系统可能阻止首次打开。打包脚本不会关闭或修改系统安全设置。
+DMG 使用浅色背景、拖拽指引、固定图标位置和自制应用图标。内容仅含应用、Applications 快捷入口、安装说明及隐藏的背景与 Finder 布局文件，不打包诊断工具、开发文件或用户数据。当前预览包为本地 ad-hoc 签名，未使用 Developer ID 分发证书、未做 Apple 公证，系统可能阻止首次打开。打包脚本不会关闭或修改系统安全设置。
 
 ## 使用
 

@@ -1,4 +1,4 @@
-LTEModemCompact 0.3.0 — Apple Silicon Mac
+LTEModemCompact 0.3.1 — Apple Silicon Mac
 
 安装
 1. 将 LTEModemCompact.app 拖到 Applications（应用程序）。
